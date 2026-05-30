@@ -1,0 +1,16 @@
+{
+  "name": "cli-notes-taker",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "cli-table3": "^0.6.5",
+    "sqlite3": "^6.0.1"
+  }
+}
