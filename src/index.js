@@ -1,16 +1,14 @@
 let command = process.argv[2] // [ add , delete , list ]
-let note = process.argv[3]  // [value ]
-let tag = process.argv[4] // [--tag]
-let value_tag = process.argv[5]  // [ value tag]
+
+ let  tag , value_tag , valueOption , sql 
 
 
 // check if user type commands or not 
 if (!command ){
-    console.log('nothing')
+    console.log('enter options')
     process.exit(1)
 }
 
-// add -t 'nader' 
 
 //init database
 import path, { dirname, join } from 'path'
@@ -31,15 +29,22 @@ let db = new sqlite3.Database(join(__dirname,'database.db'))
  db.exec(`create table if not exists notes (id  integer primary key autoincrement , name text , tags text , dateAt  timestamp default current_timestamp )`)
 
 switch (command) {
+
+
     case 'add':
     // add a Note when typing <name Note > and < tag Name> [require]
-            
-    if (note && tag=='--tag' && value_tag) {
+  
+       valueOption = process.argv[3]
+        tag = process.argv[4] // [--tag]
+        value_tag = process.argv[5]  // [ value tag]
+
+    if (valueOption && tag=='--tag' && value_tag) {
 
         value_tag  = value_tag.split(",")
-     
 
-        db.run(`insert into notes (name , tags ) values (?,?)`, [ note ,  JSON.stringify( value_tag ) ]  )
+     sql = `insert into notes (name , tags ) values (?,?)`
+
+        db.run(sql, [ valueOption ,  JSON.stringify( value_tag ) ]  )
         
     } else {
         console.log("type a tag for your note ")  // warning when add a note without tagname 
@@ -52,10 +57,11 @@ case 'list':
 
         value_tag = process.argv[4]
 
-            // show all Notes 
+            // show all Notes when dont use --tags
         if (!tag){
+            sql = `select * from notes`;
 
-            db.all('select * from notes', [], (err, data) => {
+            db.all(sql, [], (err, data) => {
                     if (err) {
                         console.error(err);
                         return;
@@ -75,10 +81,14 @@ case 'list':
 
 
         } 
+        
 
         // show a note when type --tag <tagname> if it match [a note with tag ]
         if (tag == "--tag" && value_tag){
-          db.all(`select * from notes where tags like ?`,[`%${value_tag}%`], (err,row)=>{
+
+            sql = `select * from notes where tags like ?`
+
+          db.all(sql,[`%${value_tag}%`], (err,row)=>{
 
 
              const tableTag = new Table({
@@ -95,17 +105,23 @@ case 'list':
           })
 
         }
+
+
+      
     break;
 
    case 'delete':
-           if (note){
-                if (!isNaN(note)) {
-                    db.run(`delete from notes where id=? `, note,function (err) {
+     valueOption = process.argv[3]
+           if (valueOption){
+                if (!isNaN(valueOption)) {
+
+                    sql = `delete from notes where id=? `
+                    db.run(sql , valueOption,function (err) {
                         if (err) {
                             console.log(err)
                         }
                         else {
-                            console.log(`deleted ${this.changes} note `)
+                            console.log(`deleted ${this.changes} notes `)
                         }
                     })
                     
@@ -118,7 +134,30 @@ case 'list':
            
         break;
 
+   case 'search':
+    case 's':
+            valueOption = process.argv[3]
+           sql = `select * from notes where name like ?`
+            db.all(sql,[`%${valueOption}%`],function (err , rows) {
+                if (err) {
+                    console.log(err)
+                }
 
+         const tableTag = new Table({
+                        head: ['ID', 'Name' , 'tags','create at'],
+                        colWidths: [5, 30,20,30]
+                    });
+                    
+                    rows.forEach(r => {
+                        tableTag.push([r.id, r.name , r.tags , r.dateAt]);
+                    });
+            
+    
+                    console.log(tableTag.toString());
+            })
+
+    
+   break;
 
     default:
         console.log('a command not found')
