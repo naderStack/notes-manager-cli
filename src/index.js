@@ -20,7 +20,7 @@ let current_timestamp = Date.now();
 
 
 // my module
-import { convertTocsv } from './functions.mjs'
+import { convertTocsv, convertToJson } from './functions.mjs'
 
 let command = process.argv[2] // [ add , delete , list ]
 
@@ -104,9 +104,7 @@ case 'list':
         if (tag == "--tag" && value_tag){
 
       
-
           db.all( `select * from notes where tags like ?`,[`%${value_tag}%`], (err,row)=>{
-
 
              const tableTag = new Table({
                         head: ['ID', 'Name' , 'tags','create at'],
@@ -192,14 +190,16 @@ case 'list':
     case "ex":
 
         valueOption = process.argv[3]
+            let dirExport = 'exportResult'
+            if (!existsSync(`./${dirExport}`)) {
+                mkdirSync(`./${dirExport}`)
+            }  
 
-            if (!existsSync('./db')) {
-                mkdirSync('./db')
-            }
+    if (valueOption && valueOption == "csv") {
 
-        db.all(`SELECT * FROM notes`,[],(err,rows) => {
+                db.all(`SELECT * FROM notes`,[],(err,rows) => {
 
-                writeFile(`db/${current_timestamp}.csv`,
+                writeFile(`${dirExport}/${current_timestamp}.csv`,
             convertTocsv(rows),
             (err)=>{
                     if (err) {
@@ -207,19 +207,36 @@ case 'list':
                             error: err
                         })
                     }
+
+                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.csv ]`))
                 })
                 
                 
         }) // end select all [notes]
 
-
-    
-
-    if (valueOption && valueOption == "csv") {
      
     } else if(valueOption && valueOption == "json") {
-        // place 
-        // 
+        // start 
+                    db.all(`SELECT * FROM notes`,[],(err,rows) => {
+
+                            // convertToJson(rows)
+
+                        // console.log(convertToJson(rows))
+
+                writeFile(`${dirExport}/${current_timestamp}.json`,
+            convertToJson(rows),
+            (err)=>{
+                    if (err) {
+                        console.error('[ERROR]',{
+                            error: err
+                        })
+                    }
+
+                    console.log(chalk.greenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`))
+                })
+                
+                
+        }) // end 
     } else {
         console.log(chalk.bgYellowBright("enter Type Export [csv,json] "))
     }

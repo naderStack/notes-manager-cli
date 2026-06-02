@@ -50,3 +50,11 @@
    
        return csv
    }
+
+// json 
+
+export function convertToJson(rows) {
+
+        return JSON.stringify(rows, null, 2)
+
+}
