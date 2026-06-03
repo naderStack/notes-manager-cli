@@ -12,7 +12,7 @@ import chalk from 'chalk'
 
 // import module sqlite 
 
-import sqlite3 from 'sqlite3'
+import {DatabaseSync} from 'node:sqlite'
 
 import Table from 'cli-table3'
 
@@ -40,13 +40,14 @@ if (!command ){
 
 let __dirname= dirname(fileURLToPath(import.meta.url))       // /home/nader/Desktop/cli-notes-taker/src
 
-let db = new sqlite3.Database(join(__dirname,'database.db'))
+let db = new DatabaseSync(join(__dirname,'database.db'))
 
  db.exec(`create table if not exists notes (id  integer primary key autoincrement , name text , tags text , dateAt  timestamp default current_timestamp )`)
 
 switch (command) {
     
     case 'add':
+    case 'a':
 
         // add a Note when typing <name Note > and < tag Name> [require]
     
@@ -57,8 +58,15 @@ switch (command) {
         if (valueOption && tag=='--tag' && value_tag) {
 
             value_tag  = value_tag.split(",")
+
+            let stmt = db.prepare(`INSERT  INTO notes (name , tags ) VALUES (?,?)`)
         
-            db.run( `insert into notes (name , tags ) values (?,?)`, [ valueOption ,  JSON.stringify( value_tag ) ]  )
+           let state = stmt.run(valueOption ,  JSON.stringify( value_tag ))
+
+        
+           if (state.changes) {
+                console.log(chalk.blueBright(`done ! add a note [${valueOption}]`))
+           } 
             
         } else {
             console.log(chalk.yellow("type a tag for your note "))  // warning when add a note without tagname 
@@ -67,6 +75,7 @@ switch (command) {
     break;
 
 case 'list':
+case 'l':
 
     tag             = process.argv[3]
 
@@ -77,26 +86,28 @@ case 'list':
     if (!tag){
         
 
-        db.all( `select * from notes`, [], (err, data) => {
+      try {
+        
+          let stmt = db.prepare(`SELECT * FROM   notes `)
 
-                if (err) {
-                    console.error(chalk.red(err));
-                    return;
-                }
-                    
+        let data = stmt.all();
+
                 const table = new Table({
                     head: ['ID', 'Name' , 'tags','create at'],
                     colWidths: [5, 30,20,30]
                 });
-                    
-                data.forEach(row => {
+
+            // console.log(data)
+
+            data.forEach(row => {
                     table.push([ chalk.yellow(row.id), row.name , row.tags , chalk.blue(row.dateAt)]);
                 });
                 
            console.log(table.toString());
-        
-       })
 
+      } catch(err) {
+       console.error('[DB ERROR]', err);
+      }
 
     } 
         
@@ -104,21 +115,36 @@ case 'list':
         // show a note when type --tag <tagname> if it match [a note with tag ]
         if (tag == "--tag" && value_tag){
 
-      
-          db.all( `select * from notes where tags like ?`,[`%${value_tag}%`], (err,row)=>{
+           //s
 
-             const tableTag = new Table({
-                        head: ['ID', 'Name' , 'tags','create at'],
-                        colWidths: [5, 30,20,30]
-                    });
-                    
+            try {
+                    let stmt = db.prepare(`SELECT * FROM notes WHERE tags LIKE ? `)
+                    let row = stmt.all(`%${value_tag}%` )
+
+                    if (row.length == 0 ) {
+                        console.log(chalk.blueBright(`Not found Notes include this [tag:${value_tag}]`))
+                }else {
+                      const tableTag = new Table({
+                                        head: ['ID', 'Name' , 'tags','create at'],
+                                        colWidths: [5, 40,30,30]
+                                    });
+
+
                     row.forEach(r => {
-                        tableTag.push([ chalk.yellow(r.id), r.name , r.tags , chalk.blue(r.dateAt)]);
-                    });
+                                            tableTag.push([ chalk.yellow(r.id), r.name , r.tags , chalk.blue(r.dateAt)]);
+                                        });
             
     
                     console.log(tableTag.toString());
-          })
+                }
+
+                
+            }catch(er){
+                console.error(er)
+            }
+            //e
+      
+
 
         }
 
@@ -127,25 +153,30 @@ case 'list':
      break;
 
    case 'delete':
+    case 'd':
      valueOption = process.argv[3]
            if (valueOption){
                 if (!isNaN(valueOption)) {
 
+                //s
+                try {
+                    let stmt = db.prepare(`DELETE FROM notes WHERE id=?`)
+                    let state = stmt.run(valueOption)
                 
-                    db.run(`delete from notes where id=? ` , valueOption,function (err) {
-                        if (err) {
-                            console.log(err)
-                        }
-                        else {
-                            if (this.changes == 0) {
+                
+                    if (state.changes == 0) {
                                     console.log(chalk.bgYellowBright("The id is Not Found !"))
                             } else {
-                            console.log(chalk.bgRed((`deleted ${this.changes} notes `)))
+                            console.log(chalk.bgRed((`deleted ${state.changes} notes `)))
 
                             }
-                        }
-                    })
-                    
+
+                }catch(err){
+                        console.log(err)
+                }
+
+                //e
+                            
                 } else {
                     console.log(chalk.bgYellow("enter id look like 4 "))
                 }
@@ -158,14 +189,14 @@ case 'list':
     case 'search':
     case 's':
             valueOption = process.argv[3]
-        
-            db.all(`select * from notes where name like ?`,[`%${valueOption}%`],function (err , rows) {
-                if (err) {
-                    console.log(chalk.bgRed(err))
-                }
 
+            // s
+                try {
+                    let stmt = db.prepare(`SELECT * FROM notes WHERE name LIKE ?`)
 
-                if (rows.length == 0) {
+                    let rows = stmt.all(`%${valueOption}%`)
+
+                     if (rows.length == 0) {
                     console.log(chalk.bgYellowBright('not found !'))
                 } else {
                     const tableTag = new Table({
@@ -181,7 +212,11 @@ case 'list':
                     
                     console.log(tableTag.toString());
                 }
-            })
+
+                }catch(err) {
+                    console.log(chalk.bgRed(err))
+                }
+            // e   
 
               
     
@@ -197,54 +232,46 @@ case 'list':
             }  
 
     if (valueOption && valueOption == "csv") {
+        // s
 
-                db.all(`SELECT * FROM notes`,[],(err,rows) => {
+        try {
 
-                writeFile(`${dirExport}/${current_timestamp}.csv`,
-            convertTocsv(rows),
-            (err)=>{
-                    if (err) {
-                        console.error('[ERROR]',{
-                            error: err
-                        })
-                    }
+            let stmt = db.prepare(`SELECT * FROM notes`)
 
-                    console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
+            let rows = stmt.all()
+
+              writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
+                console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
                 })
-                
-                
-        }) // end select all [notes]
+            
+        } catch(err) {
+            console.error(err)
+        }
 
+        // e
      
     } else if(valueOption && valueOption == "json") {
-        // start 
-                    db.all(`SELECT * FROM notes`,[],(err,rows) => {
 
-                            // convertToJson(rows)
+        // s
+                    try {
+                let stmt = db.prepare(`SELECT * FROM notes`)
+                let rows = stmt.all()
 
-                        // console.log(convertToJson(rows))
-
-                writeFile(`${dirExport}/${current_timestamp}.json`,
-            convertToJson(rows),
-            (err)=>{
-                    if (err) {
-                        console.error('[ERROR]',{
-                            error: err
-                        })
-                    }
-
-                    console.log(chalk.greenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`))
+                    writeFile(`${dirExport}/${current_timestamp}.json`, convertToJson(rows), (err)=>{ 
+                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`)) 
                 })
-                
-                
-        }) // end 
-    } else {
+
+            }catch(err){
+                console.log(err)
+            }               
+                } else {
         console.log(chalk.bgYellowBright("enter Type Export [csv,json] "))
     }
-
+    // e
     break;
-
     case "backup":
+        case "b":
+
                 if (!existsSync('./bkup_db')) {
                 mkdirSync("./bkup_db")
         }
@@ -256,55 +283,41 @@ case 'list':
             )`)
                 
 
-           
-                        
-        db.all(`select * from notes ` , [],(err,rows)=>{
+           //s1
+                try {
+                    let stmt = db.prepare(`SELECT * FROM notes`)
 
-                if (err) {
-                console.log(err)
-                }
+                    let rows = stmt.all()
+
                 // create table
-                    // get all note 
-                        // add name [backup]
-                        //  get all backup
-                                // add new name [backup] & write file
-                            
-                                db.all(`select * from backups_log ORDER by id DESC limit 1`,[],(err,log) =>{
-                            if ( err) {
-                                console.log(err)
-                            }
-                                
-                                let dayDiff =  current_timestamp - log[0].name ;
+                // get all note 
+                // add name [backup]
+                //  get all backup
+                // add new name [backup] & write file
+
+                //s2
+                        try {
+                            let stmt2 = db.prepare(`SELECT * FROM backups_log ORDER BY id DESC LIMIT 1`)
+                        let rows2 = stmt2.all()
+
+                         let dayDiff =  current_timestamp - rows2[0].name ;
 
                                 // 1000 * 60 * 60 * 24 == 1 day 
                                 // yesterday  > today = false 
                                //
                                 //1780348583942 > 1780348583942
 
-                           if ( dayDiff > 86400000) {
+                                // s3
 
-
-                
+                                 if ( dayDiff > 86400000) {               
                                  // store name file in database  
+                                        try {
+                                            let stmt3 = db.prepare(`INSERT INTO backups_log   (name) values (?)`).run(current_timestamp)
+                                            
+                                               // when stored name file 
+                                    //   save file.csv when insert to database 
 
-                                            db.run(`insert into backups_log (name) values (?)`,
-                                                current_timestamp , 
-                                                function (err) {
-
-                                                if (err) {
-                                                    console.error('[DB ERROR]',{
-                                                        sql:sql 
-                                                    })
-
-                                                }
-
-                                                // when stored name file 
-                                                        //   save file.csv when insert to database 
-
-
-                                                // if (current_timestamp == )
-
-                                            if ( this.changes === 1 ) {
+                                            if ( stmt3.changes === 1 ) {
 
                                                 writeFile(`bkup_db/${current_timestamp}_bkup.csv`,
                                                     convertTocsv(rows),
@@ -316,21 +329,42 @@ case 'list':
                                                             }
                                                         })      
                                             }
-                                                                
-                                    })
-                                
-                           } else {
+
+                                        }catch (er3) {
+                                            console.error(er3)
+                                        }
+                                    } else {
                             console.log(chalk.bgBlackBright('you cannot do backup before 24h '))
                            }
-                    })
+
+                                // e3
+
+                        }catch (err2){
+                            console.error(err2)
+                        }
 
 
-        }) 
+                //e2
+
+
+                }catch(err1) {
+                console.log(err1)
+
+                }
+           //e1  
+         
+           break;
 
     case 'test':
-       db.all(`select * from notes`,[],(err,rows) => {
+        case 't':
 
-        if (err) {
+      
+   
+        try {
+            let stmt = db.prepare(`SELECT * FROM notes`)
+                    let rows = stmt.run()
+        }catch(err){
+             
             console.error('[DB ERROR]',{
                 sql:sql,
                 error:err.name,
@@ -338,23 +372,23 @@ case 'list':
                 
             })
         }
+
     
-        // console.log(json2sql(rows,'user'))
-       })
 
-       let data ;
+        try{
+            let stmt = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
+            let rows = stmt.all()
 
+            const tbls = rows.map(tbl => {
+                        const table = Object.values(tbl)
+                        return table 
+            }).join(',').split(",")
 
-       db.all(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,[],(err,rows) =>{
-       const tbls = rows.map(tbl => {
-                const table = Object.values(tbl)
-                return table 
-       }).join(',').split(",")
-
-    })
-
-
-    break;
+              console.log(tbls)
+        }catch (err){
+            console.log(err)
+        }
+    
 
 
     break;
