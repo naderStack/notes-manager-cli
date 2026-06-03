@@ -20,7 +20,8 @@ let current_timestamp = Date.now();
 
 
 // my module
-import { convertTocsv, convertToJson } from './functions.mjs'
+import { convertTocsv, convertToJson, json2sql } from './functions.mjs'
+import { table } from 'console'
 
 let command = process.argv[2] // [ add , delete , list ]
 
@@ -208,7 +209,7 @@ case 'list':
                         })
                     }
 
-                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.csv ]`))
+                    console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
                 })
                 
                 
@@ -280,47 +281,80 @@ case 'list':
                                //
                                 //1780348583942 > 1780348583942
 
-                           if ( true) {
-                                console.log(dayDiff)
+                           if ( dayDiff > 86400000) {
+
+
+                
+                                 // store name file in database  
+
+                                            db.run(`insert into backups_log (name) values (?)`,
+                                                current_timestamp , 
+                                                function (err) {
+
+                                                if (err) {
+                                                    console.error('[DB ERROR]',{
+                                                        sql:sql 
+                                                    })
+
+                                                }
+
+                                                // when stored name file 
+                                                        //   save file.csv when insert to database 
+
+
+                                                // if (current_timestamp == )
+
+                                            if ( this.changes === 1 ) {
+
+                                                writeFile(`bkup_db/${current_timestamp}_bkup.csv`,
+                                                    convertTocsv(rows),
+                                                    (err)=>{
+                                                            if (err) {
+                                                                console.error('[ERROR]',{
+                                                                    error: err
+                                                                })
+                                                            }
+                                                        })      
+                                            }
+                                                                
+                                    })
+                                
+                           } else {
+                            console.log(chalk.bgBlackBright('you cannot do backup before 24h '))
                            }
                     })
 
-                
-                // store name file in database  
-
-                db.run(`insert into backups_log (name) values (?)`,
-                    current_timestamp , 
-                    function (err) {
-
-                    if (err) {
-                        console.error('[DB ERROR]',{
-                            sql:sql 
-                        })
-
-                    }
-
-                    // when stored name file 
-                            //   save file.csv when insert to database 
-
-
-                    // if (current_timestamp == )
-
-                    if ( this.changes === 1 ) {
-
-                        writeFile(`bkup_db/${current_timestamp}.csv`,
-                            convertTocsv(rows),
-                            (err)=>{
-                                    if (err) {
-                                        console.error('[ERROR]',{
-                                            error: err
-                                        })
-                                    }
-                                })      
-                    }
-                                        
-            })
 
         }) 
+
+    case 'test':
+       db.all(`select * from notes`,[],(err,rows) => {
+
+        if (err) {
+            console.error('[DB ERROR]',{
+                sql:sql,
+                error:err.name,
+                messg:err.message
+                
+            })
+        }
+    
+        // console.log(json2sql(rows,'user'))
+       })
+
+       let data ;
+
+
+       db.all(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`,[],(err,rows) =>{
+       const tbls = rows.map(tbl => {
+                const table = Object.values(tbl)
+                return table 
+       }).join(',').split(",")
+
+    })
+
+
+    break;
 
 
     break;

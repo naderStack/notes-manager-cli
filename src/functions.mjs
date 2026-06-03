@@ -58,3 +58,26 @@ export function convertToJson(rows) {
         return JSON.stringify(rows, null, 2)
 
 }
+
+export function json2sql (rows,tableName){
+
+    if (!rows.length) return ''; // check parma is not empty 
+
+    // get keys from first object  : string 
+
+    const cols = Object.keys(rows[0]).join(',');
+
+    const values = rows.map( row => {
+
+        const vals = Object.values(row).map(val => 
+            typeof val === 'string' ? `'${val.replace(/'/g,"''")}'` : val 
+        ).join(', ');
+
+        return `(${vals})`;
+
+     
+    }).join(',\n');
+
+    
+    return `INSERT INTO ${tableName} (${cols}) VALUES \n${values};\n`;
+}
