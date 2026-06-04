@@ -240,9 +240,13 @@ case 'l':
 
             let rows = stmt.all()
 
-              writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
-                console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
-                })
+           if (rows == true ) {
+             writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
+               console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
+             })
+          } else {
+            console.log(chalk.bgYellowBright(`no date for export it`))
+          }
             
         } catch(err) {
             console.error(err)
@@ -257,9 +261,15 @@ case 'l':
                 let stmt = db.prepare(`SELECT * FROM notes`)
                 let rows = stmt.all()
 
-                    writeFile(`${dirExport}/${current_timestamp}.json`, convertToJson(rows), (err)=>{ 
-                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`)) 
+            if (rows == false){
+                console.log(chalk.bgYellowBright( `no data for export it `))
+                process.exit(1)
+            }
+                  writeFile(`${dirExport}/${current_timestamp}.json`, convertToJson(rows), (err)=>{
+                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`))
                 })
+
+
 
             }catch(err){
                 console.log(err)
