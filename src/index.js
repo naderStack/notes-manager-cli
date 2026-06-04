@@ -27,7 +27,7 @@ let command = process.argv[2] // [ add , delete , list ]
 
  let  tag , value_tag , valueOption , sql 
 
-// check if user type commands or not
+// check if user type commands or not 
 
 if (!command ){
     console.log(chalk.bgYellowBright('enter options'))
@@ -240,13 +240,9 @@ case 'l':
 
             let rows = stmt.all()
 
-             if (rows == false){
-                 console.log(chalk.yellow(`Not Data Backup!`))
-            }else {
-                writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
-                    console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
+              writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
+                console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
                 })
-            }
             
         } catch(err) {
             console.error(err)
@@ -293,8 +289,6 @@ case 'l':
 
                     let rows = stmt.all()
 
-                        
-
                 // create table
                 // get all note 
                 // add name [backup]
@@ -304,21 +298,18 @@ case 'l':
                 //s2
                         try {
                             let stmt2 = db.prepare(`SELECT * FROM backups_log ORDER BY id DESC LIMIT 1`)
+                        let rows2 = stmt2.all()
 
-                        let rows2 = stmt2.all() 
-                              
-
-                         let dayDiff = rows2 == false ?  0  : current_timestamp - rows2[0].name ;
+                         let dayDiff =  current_timestamp - rows2[0].name ;
 
                                 // 1000 * 60 * 60 * 24 == 1 day 
                                 // yesterday  > today = false 
                                //
                                 //1780348583942 > 1780348583942
 
-                                // s3   
-                                
+                                // s3
 
-                                 if ( dayDiff > 86400000   || dayDiff == 0 ) {               
+                                 if ( dayDiff > 86400000) {               
                                  // store name file in database  
                                         try {
                                             let stmt3 = db.prepare(`INSERT INTO backups_log   (name) values (?)`).run(current_timestamp)
@@ -326,7 +317,7 @@ case 'l':
                                                // when stored name file 
                                     //   save file.csv when insert to database 
 
-                                            if ( stmt3.changes === 1  ) {
+                                            if ( stmt3.changes === 1 ) {
 
                                                 writeFile(`bkup_db/${current_timestamp}_bkup.csv`,
                                                     convertTocsv(rows),
@@ -343,14 +334,8 @@ case 'l':
                                             console.error(er3)
                                         }
                                     } else {
-                                            if (!dayDiff) {
-                                                console.log(chalk.yellowBright(`not data for backup !`))
-                                            } else {
-                                                 console.log(chalk.yellowBright('you cannot do backup before 24h '))
-                                            }
-                                      }
-
-                           
+                            console.log(chalk.bgBlackBright('you cannot do backup before 24h '))
+                           }
 
                                 // e3
 
