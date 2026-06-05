@@ -16,7 +16,7 @@ import {DatabaseSync} from 'node:sqlite'
 
 import Table from 'cli-table3'
 
-let current_timestamp = Date.now(); 
+const CURRENT_TIMESTAMP = Date.now();
 
 
 // my module
@@ -42,7 +42,7 @@ let __dirname= dirname(fileURLToPath(import.meta.url))       // /home/nader/Desk
 
 let db = new DatabaseSync(join(__dirname,'database.db'))
 
- db.exec(`create table if not exists notes (id  integer primary key autoincrement , name text , tags text , dateAt  timestamp default current_timestamp )`)
+ db.exec(`create table if not exists notes (id  integer primary key autoincrement , name text , tags text , dateAt  timestamp default CURRENT_TIMESTAMP )`)
 
 switch (command) {
     
@@ -226,23 +226,24 @@ case 'l':
     case "ex":
 
         valueOption = process.argv[3]
+
             let dirExport = 'exportResult'
+
             if (!existsSync(`./${dirExport}`)) {
                 mkdirSync(`./${dirExport}`)
             }  
 
     if (valueOption && valueOption == "csv") {
         // s
-
-        try {
-
             let stmt = db.prepare(`SELECT * FROM notes`)
 
             let rows = stmt.all()
+        try {
 
-           if (rows == true ) {
-             writeFile(`${dirExport}/${current_timestamp}.csv`, convertTocsv(rows),(err)=>{
-               console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${current_timestamp}.csv ]`))
+
+           if (rows.length > 0 ) {
+             writeFile(`${dirExport}/${CURRENT_TIMESTAMP}.csv`, convertTocsv(rows),(err)=>{
+               console.log(chalk.bgGreenBright(`done Export [ ${dirExport}/${CURRENT_TIMESTAMP}.csv ]`))
              })
           } else {
             console.log(chalk.bgYellowBright(`no date for export it`))
@@ -261,13 +262,15 @@ case 'l':
                 let stmt = db.prepare(`SELECT * FROM notes`)
                 let rows = stmt.all()
 
-            if (rows == false){
+            if (rows.length == 0 ){
                 console.log(chalk.bgYellowBright( `no data for export it `))
-                process.exit(1)
-            }
-                  writeFile(`${dirExport}/${current_timestamp}.json`, convertToJson(rows), (err)=>{
-                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${current_timestamp}.json ]`))
+
+            }else {
+                writeFile(`${dirExport}/${CURRENT_TIMESTAMP}.json`, convertToJson(rows), (err)=>{
+                    console.log(chalk.bgGreenBright(`done Backup [ ${dirExport}/${CURRENT_TIMESTAMP}.json ]`))
                 })
+            }
+
 
 
 
@@ -286,11 +289,18 @@ case 'l':
                 mkdirSync("./bkup_db")
         }
 
-        db.exec(`create table if not exists backups_log (
-                id integer primary key autoincrement , 
-                name integer ,
-                    date timestamp default current_timestamp
-            )`)
+        const SEC = 1000
+        const MIN = SEC * 60
+        const HOUR = MIN * 60
+        const DAY = HOUR * 24  // 86400000
+
+    let notes =  db.prepare(`SELECT * FROM notes `).all();
+
+
+   if (notes && Object.keys(notes).length == false) {
+       console.log(chalk.yellowBright('not found notes for backup !'))
+       process.exit(1)
+}
                 
 
            //s1
@@ -307,29 +317,48 @@ case 'l':
 
                 //s2
                         try {
-                            let stmt2 = db.prepare(`SELECT * FROM backups_log ORDER BY id DESC LIMIT 1`)
-                        let rows2 = stmt2.all()
+                            let stmt2 = db.prepare(`SELECT name as last_backup_timestamp FROM backups_log ORDER BY id DESC LIMIT 1`)
+                        let rows2 = stmt2.get() // object
 
-                         let dayDiff =  current_timestamp - rows2[0].name ;
+                        let elapsed_ms = rows2 ? CURRENT_TIMESTAMP - rows2.last_backup_timestamp  : 0;
 
-                                // 1000 * 60 * 60 * 24 == 1 day 
-                                // yesterday  > today = false 
-                               //
-                                //1780348583942 > 1780348583942
+                        console.log(`last backup : ${chalk.bgYellow(Math.floor(elapsed_ms / MIN))} MINUTES `)
 
+
+            console.log(chalk.blue(`Remain Time of do Backup : `)+chalk.bgYellow(Math.floor((DAY - elapsed_ms)  / 1000 / 60 / 60))+` HOUR`)
                                 // s3
 
-                                 if ( dayDiff > 86400000) {               
+                            if (elapsed_ms == 0 ) {
+                                let stmt3 = db.prepare(`INSERT INTO backups_log   (name) values (?)`).run(CURRENT_TIMESTAMP)
+
+                                // when stored name file
+                                //   save file.csv when insert to database
+
+                                if ( stmt3.changes === 1 ) {
+
+                                    writeFile(`bkup_db/${CURRENT_TIMESTAMP}_bkup.csv`,
+                                              convertTocsv(rows),
+                                              (err)=>{
+                                                  if (err) {
+                                                      console.error('[ERROR]',{
+                                                          error: err
+                                                      })
+                                                  }
+                                              })
+                                }
+
+
+                            } else if ( elapsed_ms > 86400000) {
                                  // store name file in database  
                                         try {
-                                            let stmt3 = db.prepare(`INSERT INTO backups_log   (name) values (?)`).run(current_timestamp)
+                                            let stmt3 = db.prepare(`INSERT INTO backups_log   (name) values (?)`).run(CURRENT_TIMESTAMP)
                                             
                                                // when stored name file 
                                     //   save file.csv when insert to database 
 
                                             if ( stmt3.changes === 1 ) {
 
-                                                writeFile(`bkup_db/${current_timestamp}_bkup.csv`,
+                                                writeFile(`bkup_db/${CURRENT_TIMESTAMP}_bkup.csv`,
                                                     convertTocsv(rows),
                                                     (err)=>{
                                                             if (err) {
@@ -369,7 +398,12 @@ case 'l':
         case 't':
 
       
-   
+    // get all notes
+    // get all tables in database
+             // get all data in tables [foreach ]
+
+
+
         try {
             let stmt = db.prepare(`SELECT * FROM notes`)
                     let rows = stmt.run()
@@ -394,7 +428,15 @@ case 'l':
                         return table 
             }).join(',').split(",")
 
-              console.log(tbls)
+              // all table [ array ]
+                    // get all data in tables [foreach ]
+
+       let  dataTables = []
+        tbls.forEach(tbl => {
+               let stmt = db.prepare(`SELECT * FROM ${tbl} `).all()
+
+               console.log(stmt)
+        })
         }catch (err){
             console.log(err)
         }
